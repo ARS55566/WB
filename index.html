@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Downloader</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
+    #status { margin-top: 20px; white-space: pre-line; background: #fff; padding: 15px; border-radius: 5px; }
+    input, button { padding: 10px; width: 300px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Image Downloader</h1>
+  <input type="text" id="url" placeholder="Enter gallery URL"><br>
+  <button onclick="startDownload()">Start Download</button>
+  <div id="status">Status: Waiting for input...</div>
+
+  <script>
+    function startDownload() {
+      const url = document.getElementById('url').value;
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = "🔍 Starting download...";
+
+      fetch('http://127.0.0.1:5000/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          statusDiv.textContent = `✅ Downloaded ${data.downloaded} images.\n❌ Failed: ${data.failed}\n📁 Folder: ${data.folder}`;
+        } else {
+          statusDiv.textContent = `❌ Error: ${data.error}`;
+        }
+      })
+      .catch(err => {
+        statusDiv.textContent = "❌ Network or server error: " + err.message;
+      });
+    }
+  </script>
+</body>
+</html>
