@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify, send_from_directory
 from urllib.parse import urlparse
 from flask_cors import CORS
+import zipfile
+import io
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -16,6 +18,9 @@ def serve_index():
 
 @app.route('/download', methods=['POST'])
 def download_images():
+    import zipfile
+    import io
+
     data = request.get_json()
     url = data.get('url')
 
@@ -65,16 +70,35 @@ def download_images():
             else:
                 failed += 1
 
+        # Zip the folder
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for root, _, files in os.walk(save_path):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    arcname = os.path.relpath(file_path, save_path)
+                    zipf.write(file_path, arcname)
+
+        zip_buffer.seek(0)
+        zip_filename = f"{folder_name}.zip"
+        zip_path = os.path.join("downloads", zip_filename)
+        with open(zip_path, "wb") as f:
+            f.write(zip_buffer.read())
+
         return jsonify({
             "success": True,
             "downloaded": downloaded,
             "failed": failed,
-            "folder": folder_name
+            "folder": folder_name,
+            "zip_url": f"/download_zip/{zip_filename}"
         })
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@app.route('/download_zip/<filename>')
+def serve_zip(filename):
+    return send_from_directory('downloads', filename, as_attachment=True)
 
 if __name__ == '__main__':
     os.makedirs("downloads", exist_ok=True)
