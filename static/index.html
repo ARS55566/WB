@@ -4,9 +4,30 @@
   <meta charset="UTF-8">
   <title>Image Downloader</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-    #status { margin-top: 20px; white-space: pre-line; background: #fff; padding: 15px; border-radius: 5px; }
-    input, button { padding: 10px; width: 300px; margin-bottom: 10px; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    #status {
+      margin-top: 20px;
+      white-space: pre-line;
+      background: #fff;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    input, button {
+      padding: 10px;
+      width: 300px;
+      margin-bottom: 10px;
+    }
+    a {
+      display: inline-block;
+      margin-top: 10px;
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -29,7 +50,12 @@
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          statusDiv.textContent = `✅ Downloaded ${data.downloaded} images.\n❌ Failed: ${data.failed}\n📁 Folder: ${data.folder}`;
+          statusDiv.innerHTML = `
+            ✅ Downloaded: ${data.downloaded} images.<br>
+            ❌ Failed: ${data.failed}<br>
+            📁 Folder: ${data.folder}<br>
+            📦 <a href="${data.zip_url}" download>Click here to download ZIP</a>
+          `;
         } else {
           statusDiv.textContent = `❌ Error: ${data.error}`;
         }
