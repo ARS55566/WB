@@ -28,7 +28,15 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       })
-      .then(res => res.json())
+      .then(res => {
+        // Check if it's really JSON
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          return res.json();
+        } else {
+          throw new Error("Response is not JSON");
+        }
+      })
       .then(data => {
         if (data.success) {
           statusDiv.innerHTML = `
@@ -42,4 +50,9 @@
         }
       })
       .catch(err => {
-        statusDiv.textContent = "❌ Netw
+        statusDiv.textContent = "❌ Network or server error: " + err.message;
+      });
+    }
+  </script>
+</body>
+</html>
