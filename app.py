@@ -3,7 +3,6 @@ import re
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify, send_from_directory
-from urllib.parse import urlparse
 from flask_cors import CORS
 import zipfile
 import io
@@ -15,12 +14,8 @@ CORS(app)
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
 
-
 @app.route('/download', methods=['POST'])
 def download_images():
-    import zipfile
-    import io
-
     data = request.get_json()
     url = data.get('url')
 
@@ -38,39 +33,49 @@ def download_images():
         save_path = os.path.join("downloads", folder_name)
         os.makedirs(save_path, exist_ok=True)
 
-        # Base image URL
-        photo_div = soup.find('div', class_='d-flex justify-content-center photo-item')
-        if not photo_div:
-            return jsonify({"success": False, "error": "Could not find image preview link."}), 400
-
-        href = photo_div.find('a')['href']
-        base_url = href.rsplit('/', 1)[0] + '/'
-
-        # Image count
+        # Get image count from <h1 class="h6">
         h1 = soup.find('h1', class_='h6')
         if not h1:
             return jsonify({"success": False, "error": "Could not find image count."}), 400
-        
-        # Extract the first number found in the text
+
         match = re.search(r'\d+', h1.text)
         if not match:
             return jsonify({"success": False, "error": "Could not extract image count."}), 400
-        
+
         image_count = int(match.group())
 
+        # Find the first image URL to get base + start ID
+        first_img_tag = soup.find('a', href=re.compile(r'/images/.+\.webp'))
+        if not first_img_tag:
+            return jsonify({"success": False, "error": "Could not find initial image URL."}), 400
+
+        first_img_url = first_img_tag['href']
+        if not first_img_url.startswith('http'):
+            first_img_url = 'https://waifubitches.com' + first_img_url
+
+        img_match = re.match(r"(https://.*/)(\d+)\.webp", first_img_url)
+        if not img_match:
+            return jsonify({"success": False, "error": "Could not parse image URL pattern."}), 400
+
+        base_url, start_id_str = img_match.groups()
+        start_id = int(start_id_str)
+
+        # Download images in sequence
         downloaded = 0
         failed = 0
-
-        for i in range(1, image_count + 1):
-            img_url = f"{base_url}{i}.webp"
+        for i in range(image_count):
+            img_id = start_id + i
+            img_url = f"{base_url}{img_id}.webp"
             img_data = requests.get(img_url, headers=headers)
+
             if img_data.status_code == 200:
-                file_path = os.path.join(save_path, f"{folder_name} {i:03d}.jpg")
+                file_path = os.path.join(save_path, f"{folder_name} {i + 1:03d}.webp")
                 with open(file_path, 'wb') as f:
                     f.write(img_data.content)
                 downloaded += 1
             else:
                 failed += 1
+                break  # Stop at first failure (optional)
 
         # Zip the folder
         zip_buffer = io.BytesIO()
