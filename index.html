@@ -21,7 +21,9 @@
       const statusDiv = document.getElementById('status');
       statusDiv.textContent = "🔍 Starting download...";
 
-      fetch('http://127.0.0.1:5000/download', {
+      const baseURL = location.hostname === 'localhost' ? 'http://127.0.0.1:5000' : 'https://wb-3.onrender.com';
+
+      fetch(`${baseURL}/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
@@ -29,15 +31,15 @@
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          statusDiv.textContent = `✅ Downloaded ${data.downloaded} images.\n❌ Failed: ${data.failed}\n📁 Folder: ${data.folder}`;
+          statusDiv.innerHTML = `
+✅ Downloaded: ${data.downloaded} images
+❌ Failed: ${data.failed}
+📁 Folder: ${data.folder}
+📦 <a href="${baseURL}${data.zip_url}" download>Click here to download ZIP</a>
+          `;
         } else {
           statusDiv.textContent = `❌ Error: ${data.error}`;
         }
       })
       .catch(err => {
-        statusDiv.textContent = "❌ Network or server error: " + err.message;
-      });
-    }
-  </script>
-</body>
-</html>
+        statusDiv.textContent = "❌ Netw
