@@ -47,15 +47,17 @@ def download_images():
         base_url = href.rsplit('/', 1)[0] + '/'
 
         # Image count
-        h1 = soup.find('h1', class_='container text-center text-uppercase h6 mt-2')
+        h1 = soup.find('h1', class_='h6')
         if not h1:
             return jsonify({"success": False, "error": "Could not find image count."}), 400
-
-        match = re.search(r'\b\d+\b', h1.text)
+        
+        # Extract the first number found in the text
+        match = re.search(r'\d+', h1.text)
         if not match:
             return jsonify({"success": False, "error": "Could not extract image count."}), 400
-
+        
         image_count = int(match.group())
+
         downloaded = 0
         failed = 0
 
