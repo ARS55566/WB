@@ -64,10 +64,11 @@ def download_images():
         downloaded = 0
         failed = 0
         for i in range(image_count):
-            img_id = start_id + i
-            img_url = f"{base_url}{img_id}.webp"
-            img_data = requests.get(img_url, headers=headers)
-
+        img_id = start_id + i
+        img_url = f"{base_url}{img_id}.webp"
+        
+        try:
+            img_data = requests.get(img_url, headers=headers, timeout=10)
             if img_data.status_code == 200:
                 file_path = os.path.join(save_path, f"{folder_name} {i + 1:03d}.webp")
                 with open(file_path, 'wb') as f:
@@ -75,7 +76,12 @@ def download_images():
                 downloaded += 1
             else:
                 failed += 1
-                break  # Stop at first failure (optional)
+                break  # or continue to skip
+        except Exception as e:
+            print(f"Error fetching {img_url}: {e}")
+            failed += 1
+            break  # or continue to skip
+
 
         # Zip the folder
         zip_buffer = io.BytesIO()
