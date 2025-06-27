@@ -10,9 +10,11 @@ import io
 app = Flask(__name__, static_folder='static')
 CORS(app)
 
+
 @app.route('/')
 def serve_index():
     return send_from_directory(app.static_folder, 'index.html')
+
 
 @app.route('/download', methods=['POST'])
 def download_images():
@@ -25,7 +27,8 @@ def download_images():
         soup = BeautifulSoup(html, 'html.parser')
 
         # Extract folder name
-        name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2') for a in div.find_all('a') if a.text.strip()]
+        name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2') for a in div.find_all('a') if
+                      a.text.strip()]
         folder_name = " - ".join(name_parts).replace(":", "").replace("/", " ")
         if not folder_name:
             folder_name = "ImageGallery"
@@ -64,24 +67,23 @@ def download_images():
         downloaded = 0
         failed = 0
         for i in range(image_count):
-        img_id = start_id + i
-        img_url = f"{base_url}{img_id}.webp"
-        
-        try:
-            img_data = requests.get(img_url, headers=headers, timeout=10)
-            if img_data.status_code == 200:
-                file_path = os.path.join(save_path, f"{folder_name} {i + 1:03d}.webp")
-                with open(file_path, 'wb') as f:
-                    f.write(img_data.content)
-                downloaded += 1
-            else:
+            img_id = start_id + i
+            img_url = f"{base_url}{img_id}.webp"
+
+            try:
+                img_data = requests.get(img_url, headers=headers, timeout=10)
+                if img_data.status_code == 200:
+                    file_path = os.path.join(save_path, f"{folder_name} {i + 1:03d}.webp")
+                    with open(file_path, 'wb') as f:
+                        f.write(img_data.content)
+                    downloaded += 1
+                else:
+                    failed += 1
+                    break  # or continue to skip
+            except Exception as e:
+                print(f"Error fetching {img_url}: {e}")
                 failed += 1
                 break  # or continue to skip
-        except Exception as e:
-            print(f"Error fetching {img_url}: {e}")
-            failed += 1
-            break  # or continue to skip
-
 
         # Zip the folder
         zip_buffer = io.BytesIO()
@@ -109,9 +111,11 @@ def download_images():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+
 @app.route('/download_zip/<filename>')
 def serve_zip(filename):
     return send_from_directory('downloads', filename, as_attachment=True)
+
 
 if __name__ == '__main__':
     os.makedirs("downloads", exist_ok=True)
