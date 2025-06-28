@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Image Downloader + Preview</title>
+  <title>Image Grid Downloader</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -23,87 +23,40 @@
       white-space: pre-wrap;
       color: red;
     }
-    #preview {
+    #grid {
       margin-top: 20px;
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
       gap: 10px;
+      padding: 0 20px;
     }
-    #preview img {
+    #grid img {
       width: 100%;
+      height: auto;
       border-radius: 8px;
-      object-fit: cover;
-      height: 220px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
   </style>
 </head>
 <body>
-  <h1>Image Downloader + Preview</h1>
+  <h1>Image Grid Downloader</h1>
 
   <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
   <input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-20)"><br>
 
-  <button onclick="previewImages()">🔍 Preview Images</button>
-  <button onclick="startDownload()">⬇️ Download Images</button>
+  <button onclick="startDownload()">⬇️ Download and Show Grid</button>
 
   <div id="response"></div>
-  <div id="preview"></div>
+  <div id="grid"></div>
 
   <script>
-    function parseRange(rangeStr) {
-      const match = rangeStr.trim().match(/^(\d+)\s*-\s*(\d+)$/);
-      if (!match) return null;
-      const start = parseInt(match[1]);
-      const end = parseInt(match[2]);
-      return start <= end ? [start, end] : null;
-    }
-
-    function getBaseImageUrl(galleryUrl, callback) {
-      // Try to extract base image path from HTML
-      fetch(galleryUrl)
-        .then(res => res.text())
-        .then(html => {
-          const match = html.match(/href="(\/images\/[^"]+\.webp)"/);
-          if (!match) throw new Error("Could not find image URL.");
-          const full = new URL(match[1], galleryUrl);
-          const base = full.href.replace(/\d+\.webp$/, "");
-          callback(base);
-        })
-        .catch(err => {
-          document.getElementById("response").innerText = `❌ Error: ${err.message}`;
-        });
-    }
-
-    function previewImages() {
-      const url = document.getElementById("urlInput").value.trim();
-      const rangeStr = document.getElementById("rangeInput").value.trim();
-      const range = parseRange(rangeStr);
-      const previewDiv = document.getElementById("preview");
-      previewDiv.innerHTML = "";
-      document.getElementById("response").innerText = "";
-
-      if (!url || !range) {
-        document.getElementById("response").innerText = "❌ Enter a valid URL and range like 1-10";
-        return;
-      }
-
-      getBaseImageUrl(url, baseUrl => {
-        for (let i = range[0]; i <= range[1]; i++) {
-          const img = document.createElement("img");
-          img.src = `${baseUrl}${i}.webp`;
-          img.onerror = () => {
-            img.style.display = 'none';
-          };
-          previewDiv.appendChild(img);
-        }
-      });
-    }
-
     function startDownload() {
       const url = document.getElementById('urlInput').value.trim();
       const range = document.getElementById('rangeInput').value.trim();
       const responseDiv = document.getElementById('response');
+      const grid = document.getElementById('grid');
       responseDiv.innerText = "Processing...";
+      grid.innerHTML = "";
 
       fetch('/download', {
         method: 'POST',
@@ -117,15 +70,19 @@
           if (json.success) {
             responseDiv.innerHTML = `
               ✅ Download complete!<br>
-              Images downloaded: ${json.downloaded}<br>
-              Failed: ${json.failed}<br>
+              Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>
               <a href="${json.zip_url}" download>Download ZIP</a>
             `;
+            for (let src of json.thumbnails) {
+              const img = document.createElement('img');
+              img.src = src;
+              grid.appendChild(img);
+            }
           } else {
             responseDiv.innerText = `❌ Error: ${json.error}`;
           }
         } catch (e) {
-          responseDiv.innerText = `❌ Server sent non-JSON response:\n${text}`;
+          responseDiv.innerText = `❌ Invalid JSON:\n${text}`;
         }
       })
       .catch(err => {
