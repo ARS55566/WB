@@ -21,7 +21,6 @@ def download_images():
         url = data.get('url')
         range_str = data.get('range')
 
-        # Validate inputs
         if not url or not range_str or not re.match(r'^\d+\s*-\s*\d+$', range_str):
             return jsonify({"success": False, "error": "Invalid URL or range. Use format 1-20"}), 400
 
@@ -42,7 +41,6 @@ def download_images():
         save_path = os.path.join("downloads", folder_name)
         os.makedirs(save_path, exist_ok=True)
 
-        # Use the image base URL from any image (to get the structure)
         sample_img = soup.find('a', href=re.compile(r'/images/.+\.webp'))
         if not sample_img:
             return jsonify({"success": False, "error": "Could not find sample image URL."}), 400
@@ -59,14 +57,18 @@ def download_images():
 
         downloaded = 0
         failed = 0
+        image_urls = []
+
         for img_id in range(start, end + 1):
             img_url = f"{base_url}{img_id}.webp"
             try:
                 img_data = requests.get(img_url, headers=headers, timeout=5)
                 if img_data.status_code == 200:
-                    file_path = os.path.join(save_path, f"{folder_name} {img_id:03d}.webp")
+                    filename = f"{folder_name} {img_id:03d}.webp"
+                    file_path = os.path.join(save_path, filename)
                     with open(file_path, 'wb') as f:
                         f.write(img_data.content)
+                    image_urls.append(f"/downloads/{folder_name}/{filename}")
                     downloaded += 1
                 else:
                     failed += 1
@@ -76,6 +78,7 @@ def download_images():
                 failed += 1
                 continue
 
+        # Zip the folder
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(save_path):
@@ -95,12 +98,17 @@ def download_images():
             "downloaded": downloaded,
             "failed": failed,
             "folder": folder_name,
-            "zip_url": f"/download_zip/{zip_filename}"
+            "zip_url": f"/download_zip/{zip_filename}",
+            "thumbnails": image_urls
         })
 
     except Exception as e:
         print(f"Download error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/downloads/<folder>/<filename>')
+def serve_image(folder, filename):
+    return send_from_directory(os.path.join("downloads", folder), filename)
 
 @app.route('/download_zip/<filename>')
 def serve_zip(filename):
