@@ -12,28 +12,27 @@ CORS(app)
 
 @app.route('/')
 def serve_index():
-    return send_file('index.html')  # serves index.html from the root directory
+    return send_file('index.html')
 
 @app.route('/download', methods=['POST'])
 def download_images():
     try:
-        # Ensure JSON input is parsed correctly
         data = request.get_json(force=True)
-        if not isinstance(data, dict):
-            return jsonify({"success": False, "error": "Invalid JSON structure."}), 400
-
         url = data.get('url')
-        image_count = data.get('count')
+        range_str = data.get('range')
 
         # Validate inputs
-        if not url or not isinstance(image_count, int) or image_count <= 0:
-            return jsonify({"success": False, "error": "Invalid URL or image count."}), 400
+        if not url or not range_str or not re.match(r'^\d+\s*-\s*\d+$', range_str):
+            return jsonify({"success": False, "error": "Invalid URL or range. Use format 1-20"}), 400
+
+        start, end = map(int, re.findall(r'\d+', range_str))
+        if start > end:
+            return jsonify({"success": False, "error": "Start number must be less than or equal to end."}), 400
 
         headers = {'User-Agent': 'Mozilla/5.0'}
-        html = requests.get(url, headers=headers).text
+        html = requests.get(url, headers=headers, timeout=10).text
         soup = BeautifulSoup(html, 'html.parser')
 
-        # Extract folder name from breadcrumb
         name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2') 
                       for a in div.find_all('a') if a.text.strip()]
         folder_name = " - ".join(name_parts).replace(":", "").replace("/", " ")
@@ -43,45 +42,40 @@ def download_images():
         save_path = os.path.join("downloads", folder_name)
         os.makedirs(save_path, exist_ok=True)
 
-        # Find the first image URL to construct base URL
-        first_img_tag = soup.find('a', href=re.compile(r'/images/.+\.webp'))
-        if not first_img_tag:
-            return jsonify({"success": False, "error": "Could not find initial image URL."}), 400
+        # Use the image base URL from any image (to get the structure)
+        sample_img = soup.find('a', href=re.compile(r'/images/.+\.webp'))
+        if not sample_img:
+            return jsonify({"success": False, "error": "Could not find sample image URL."}), 400
 
-        first_img_url = first_img_tag['href']
-        if not first_img_url.startswith('http'):
-            first_img_url = 'https://waifubitches.com' + first_img_url
+        sample_url = sample_img['href']
+        if not sample_url.startswith('http'):
+            sample_url = 'https://waifubitches.com' + sample_url
 
-        img_match = re.match(r"(https://.*/)(\d+)\.webp", first_img_url)
-        if not img_match:
-            return jsonify({"success": False, "error": "Could not parse image URL pattern."}), 400
+        base_match = re.match(r"(https://.*/)\d+\.webp", sample_url)
+        if not base_match:
+            return jsonify({"success": False, "error": "Could not extract base URL."}), 400
 
-        base_url, start_id_str = img_match.groups()
-        start_id = int(start_id_str)
+        base_url = base_match.group(1)
 
-        # Download images in sequence
         downloaded = 0
         failed = 0
-        for i in range(image_count):
-            img_id = start_id + i
+        for img_id in range(start, end + 1):
             img_url = f"{base_url}{img_id}.webp"
-
             try:
-                img_data = requests.get(img_url, headers=headers, timeout=10)
+                img_data = requests.get(img_url, headers=headers, timeout=5)
                 if img_data.status_code == 200:
-                    file_path = os.path.join(save_path, f"{folder_name} {i + 1:03d}.webp")
+                    file_path = os.path.join(save_path, f"{folder_name} {img_id:03d}.webp")
                     with open(file_path, 'wb') as f:
                         f.write(img_data.content)
                     downloaded += 1
                 else:
                     failed += 1
-                    break  # Stop on first failure (or use 'continue' to skip)
+                    continue
             except Exception as e:
                 print(f"Error fetching {img_url}: {e}")
                 failed += 1
-                break
+                continue
 
-        # Zip the folder
         zip_buffer = io.BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for root, _, files in os.walk(save_path):
@@ -105,7 +99,7 @@ def download_images():
         })
 
     except Exception as e:
-        print(f"Download error: {e}")  # Log to Render logs
+        print(f"Download error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/download_zip/<filename>')
