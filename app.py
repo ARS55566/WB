@@ -16,14 +16,19 @@ def serve_index():
 
 @app.route('/download', methods=['POST'])
 def download_images():
-    data = request.get_json()
-    url = data.get('url')
-    image_count = data.get('count')
-
-    if not url or not isinstance(image_count, int) or image_count <= 0:
-        return jsonify({"success": False, "error": "Invalid URL or image count."}), 400
-
     try:
+        # Ensure JSON input is parsed correctly
+        data = request.get_json(force=True)
+        if not isinstance(data, dict):
+            return jsonify({"success": False, "error": "Invalid JSON structure."}), 400
+
+        url = data.get('url')
+        image_count = data.get('count')
+
+        # Validate inputs
+        if not url or not isinstance(image_count, int) or image_count <= 0:
+            return jsonify({"success": False, "error": "Invalid URL or image count."}), 400
+
         headers = {'User-Agent': 'Mozilla/5.0'}
         html = requests.get(url, headers=headers).text
         soup = BeautifulSoup(html, 'html.parser')
@@ -100,6 +105,7 @@ def download_images():
         })
 
     except Exception as e:
+        print(f"Download error: {e}")  # Log to Render logs
         return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route('/download_zip/<filename>')
