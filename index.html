@@ -2,12 +2,12 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Image Downloader</title>
+  <title>Image Downloader + Preview</title>
   <style>
     body {
       font-family: Arial, sans-serif;
       text-align: center;
-      margin-top: 50px;
+      margin: 20px;
     }
     input {
       margin: 8px;
@@ -16,24 +16,89 @@
     }
     button {
       padding: 10px 20px;
+      margin: 8px;
     }
     #response {
       margin-top: 20px;
       white-space: pre-wrap;
       color: red;
     }
+    #preview {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    #preview img {
+      width: 100%;
+      border-radius: 8px;
+      object-fit: cover;
+      height: 220px;
+    }
   </style>
 </head>
 <body>
-  <h1>Image Downloader</h1>
+  <h1>Image Downloader + Preview</h1>
 
   <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
   <input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-20)"><br>
-  <button onclick="startDownload()">Start Download</button>
+
+  <button onclick="previewImages()">🔍 Preview Images</button>
+  <button onclick="startDownload()">⬇️ Download Images</button>
 
   <div id="response"></div>
+  <div id="preview"></div>
 
   <script>
+    function parseRange(rangeStr) {
+      const match = rangeStr.trim().match(/^(\d+)\s*-\s*(\d+)$/);
+      if (!match) return null;
+      const start = parseInt(match[1]);
+      const end = parseInt(match[2]);
+      return start <= end ? [start, end] : null;
+    }
+
+    function getBaseImageUrl(galleryUrl, callback) {
+      // Try to extract base image path from HTML
+      fetch(galleryUrl)
+        .then(res => res.text())
+        .then(html => {
+          const match = html.match(/href="(\/images\/[^"]+\.webp)"/);
+          if (!match) throw new Error("Could not find image URL.");
+          const full = new URL(match[1], galleryUrl);
+          const base = full.href.replace(/\d+\.webp$/, "");
+          callback(base);
+        })
+        .catch(err => {
+          document.getElementById("response").innerText = `❌ Error: ${err.message}`;
+        });
+    }
+
+    function previewImages() {
+      const url = document.getElementById("urlInput").value.trim();
+      const rangeStr = document.getElementById("rangeInput").value.trim();
+      const range = parseRange(rangeStr);
+      const previewDiv = document.getElementById("preview");
+      previewDiv.innerHTML = "";
+      document.getElementById("response").innerText = "";
+
+      if (!url || !range) {
+        document.getElementById("response").innerText = "❌ Enter a valid URL and range like 1-10";
+        return;
+      }
+
+      getBaseImageUrl(url, baseUrl => {
+        for (let i = range[0]; i <= range[1]; i++) {
+          const img = document.createElement("img");
+          img.src = `${baseUrl}${i}.webp`;
+          img.onerror = () => {
+            img.style.display = 'none';
+          };
+          previewDiv.appendChild(img);
+        }
+      });
+    }
+
     function startDownload() {
       const url = document.getElementById('urlInput').value.trim();
       const range = document.getElementById('rangeInput').value.trim();
