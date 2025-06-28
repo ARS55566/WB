@@ -28,7 +28,7 @@
   <h1>Image Downloader</h1>
 
   <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
-  <input id="countInput" type="number" placeholder="Enter image count"><br>
+  <input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-20)"><br>
   <button onclick="startDownload()">Start Download</button>
 
   <div id="response"></div>
@@ -36,15 +36,14 @@
   <script>
     function startDownload() {
       const url = document.getElementById('urlInput').value.trim();
-      const count = parseInt(document.getElementById('countInput').value.trim());
-
+      const range = document.getElementById('rangeInput').value.trim();
       const responseDiv = document.getElementById('response');
       responseDiv.innerText = "Processing...";
 
       fetch('/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, count })
+        body: JSON.stringify({ url, range })
       })
       .then(async res => {
         const text = await res.text();
