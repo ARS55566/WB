@@ -1,87 +1,71 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
   <title>Image Downloader</title>
   <style>
     body {
-      font-family: sans-serif;
-      padding: 20px;
-      background: #f0f0f0;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 50px;
     }
-    h1 {
-      margin-bottom: 20px;
+    input {
+      margin: 8px;
+      padding: 8px;
+      width: 300px;
     }
-    input, button {
-      padding: 10px;
-      width: 100%;
-      max-width: 400px;
-      margin-bottom: 10px;
-      font-size: 16px;
+    button {
+      padding: 10px 20px;
     }
-    #status {
+    #response {
       margin-top: 20px;
-      white-space: pre-line;
-      background: #fff;
-      padding: 15px;
-      border-radius: 5px;
-      max-width: 600px;
+      white-space: pre-wrap;
+      color: red;
     }
   </style>
 </head>
 <body>
   <h1>Image Downloader</h1>
-  <input type="text" id="url" placeholder="Paste waifubitches.com gallery URL"><br>
-  <input type="number" id="count" placeholder="Enter image count manually"><br>
+
+  <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
+  <input id="countInput" type="number" placeholder="Enter image count"><br>
   <button onclick="startDownload()">Start Download</button>
-  <div id="status">Status: Waiting for input...</div>
+
+  <div id="response"></div>
 
   <script>
     function startDownload() {
-      const url = document.getElementById('url').value.trim();
-      const count = parseInt(document.getElementById('count').value.trim(), 10);
-      const statusDiv = document.getElementById('status');
+      const url = document.getElementById('urlInput').value.trim();
+      const count = parseInt(document.getElementById('countInput').value.trim());
 
-      if (!url) {
-        statusDiv.textContent = "❌ Please enter a gallery URL.";
-        return;
-      }
+      const responseDiv = document.getElementById('response');
+      responseDiv.innerText = "Processing...";
 
-      if (isNaN(count) || count <= 0) {
-        statusDiv.textContent = "❌ Please enter a valid image count.";
-        return;
-      }
-
-      statusDiv.textContent = "🔍 Starting download...";
-
-      const baseURL = location.hostname === 'localhost'
-        ? 'http://127.0.0.1:5000'
-        : 'https://wb-3.onrender.com';
-
-      fetch(`${baseURL}/download`, {
+      fetch('/download', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url, count })
       })
-      .then(async (res) => {
+      .then(async res => {
         const text = await res.text();
         try {
           const json = JSON.parse(text);
           if (json.success) {
-            statusDiv.innerHTML = `
-✅ Downloaded: ${json.downloaded} images<br>
-❌ Failed: ${json.failed}<br>
-📁 Folder: ${json.folder}<br>
-📦 <a href="${baseURL}${json.zip_url}" download>Click here to download ZIP</a>`;
+            responseDiv.innerHTML = `
+              ✅ Download complete!<br>
+              Images downloaded: ${json.downloaded}<br>
+              Failed: ${json.failed}<br>
+              <a href="${json.zip_url}" download>Download ZIP</a>
+            `;
           } else {
-            statusDiv.textContent = `❌ Error: ${json.error}`;
+            responseDiv.innerText = `❌ Error: ${json.error}`;
           }
         } catch (e) {
-          statusDiv.textContent = `❌ Server sent non-JSON response:\n\n${text.substring(0, 300)}...`;
+          responseDiv.innerText = `❌ Server sent non-JSON response:\n${text}`;
         }
       })
       .catch(err => {
-        statusDiv.textContent = "❌ Network or server error: " + err.message;
+        responseDiv.innerText = `❌ Request failed: ${err.message}`;
       });
     }
   </script>
