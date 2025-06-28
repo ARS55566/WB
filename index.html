@@ -4,49 +4,73 @@
   <meta charset="UTF-8">
   <title>Image Downloader</title>
   <style>
-    body { font-family: sans-serif; padding: 20px; background: #f0f0f0; }
-    #status { margin-top: 20px; white-space: pre-line; background: #fff; padding: 15px; border-radius: 5px; }
-    input, button { padding: 10px; width: 300px; margin-bottom: 10px; }
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      background: #f0f0f0;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 10px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #status {
+      margin-top: 20px;
+      white-space: pre-line;
+      background: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      max-width: 600px;
+    }
   </style>
 </head>
 <body>
   <h1>Image Downloader</h1>
-  <input type="text" id="url" placeholder="Enter gallery URL"><br>
+  <input type="text" id="url" placeholder="Paste waifubitches.com gallery URL">
+  <br>
   <button onclick="startDownload()">Start Download</button>
   <div id="status">Status: Waiting for input...</div>
 
   <script>
     function startDownload() {
-      const url = document.getElementById('url').value;
+      const url = document.getElementById('url').value.trim();
       const statusDiv = document.getElementById('status');
+      if (!url) {
+        statusDiv.textContent = "❌ Please enter a URL first.";
+        return;
+      }
+
       statusDiv.textContent = "🔍 Starting download...";
 
-      const baseURL = location.hostname === 'localhost' ? 'http://127.0.0.1:5000' : 'https://wb-3.onrender.com';
+      const baseURL = location.hostname === 'localhost'
+        ? 'http://127.0.0.1:5000'
+        : 'https://wb-3.onrender.com';
 
       fetch(`${baseURL}/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url })
       })
-      .then(res => {
-        // Check if it's really JSON
-        const contentType = res.headers.get("content-type");
-        if (contentType && contentType.includes("application/json")) {
-          return res.json();
-        } else {
-          throw new Error("Response is not JSON");
-        }
-      })
-      .then(data => {
-        if (data.success) {
-          statusDiv.innerHTML = `
-✅ Downloaded: ${data.downloaded} images
-❌ Failed: ${data.failed}
-📁 Folder: ${data.folder}
-📦 <a href="${baseURL}${data.zip_url}" download>Click here to download ZIP</a>
-          `;
-        } else {
-          statusDiv.textContent = `❌ Error: ${data.error}`;
+      .then(async (res) => {
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.success) {
+            statusDiv.innerHTML = `
+✅ Downloaded: ${json.downloaded} images<br>
+❌ Failed: ${json.failed}<br>
+📁 Folder: ${json.folder}<br>
+📦 <a href="${baseURL}${json.zip_url}" download>Click here to download ZIP</a>`;
+          } else {
+            statusDiv.textContent = `❌ Error: ${json.error}`;
+          }
+        } catch (e) {
+          statusDiv.textContent = `❌ Server sent non-JSON response:\n\n${text.substring(0, 300)}...`;
         }
       })
       .catch(err => {
