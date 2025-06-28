@@ -2,33 +2,35 @@ import os
 import re
 import requests
 from bs4 import BeautifulSoup
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 import zipfile
 import io
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__)
 CORS(app)
-
 
 @app.route('/')
 def serve_index():
-    return send_from_directory(app.static_folder, 'index.html')
-
+    return send_file('index.html')  # serves index.html from the root directory
 
 @app.route('/download', methods=['POST'])
 def download_images():
     data = request.get_json()
     url = data.get('url')
+    image_count = data.get('count')
+
+    if not url or not isinstance(image_count, int) or image_count <= 0:
+        return jsonify({"success": False, "error": "Invalid URL or image count."}), 400
 
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
         html = requests.get(url, headers=headers).text
         soup = BeautifulSoup(html, 'html.parser')
 
-        # Extract folder name
-        name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2') for a in div.find_all('a') if
-                      a.text.strip()]
+        # Extract folder name from breadcrumb
+        name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2') 
+                      for a in div.find_all('a') if a.text.strip()]
         folder_name = " - ".join(name_parts).replace(":", "").replace("/", " ")
         if not folder_name:
             folder_name = "ImageGallery"
@@ -36,18 +38,7 @@ def download_images():
         save_path = os.path.join("downloads", folder_name)
         os.makedirs(save_path, exist_ok=True)
 
-        # Get image count from <h1 class="h6">
-        h1 = soup.find('h1', class_='h6')
-        if not h1:
-            return jsonify({"success": False, "error": "Could not find image count."}), 400
-
-        match = re.search(r'\d+', h1.text)
-        if not match:
-            return jsonify({"success": False, "error": "Could not extract image count."}), 400
-
-        image_count = int(match.group())
-
-        # Find the first image URL to get base + start ID
+        # Find the first image URL to construct base URL
         first_img_tag = soup.find('a', href=re.compile(r'/images/.+\.webp'))
         if not first_img_tag:
             return jsonify({"success": False, "error": "Could not find initial image URL."}), 400
@@ -79,11 +70,11 @@ def download_images():
                     downloaded += 1
                 else:
                     failed += 1
-                    break  # or continue to skip
+                    break  # Stop on first failure (or use 'continue' to skip)
             except Exception as e:
                 print(f"Error fetching {img_url}: {e}")
                 failed += 1
-                break  # or continue to skip
+                break
 
         # Zip the folder
         zip_buffer = io.BytesIO()
@@ -111,11 +102,9 @@ def download_images():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-
 @app.route('/download_zip/<filename>')
 def serve_zip(filename):
     return send_from_directory('downloads', filename, as_attachment=True)
-
 
 if __name__ == '__main__':
     os.makedirs("downloads", exist_ok=True)
