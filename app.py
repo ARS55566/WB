@@ -29,7 +29,7 @@ def download_images():
             return jsonify({"success": False, "error": "Start number must be less than or equal to end."}), 400
 
         headers = {'User-Agent': 'Mozilla/5.0'}
-        html = requests.get(url, headers=headers, timeout=10).text
+        html = requests.get(url, headers=headers, timeout=20).text
         soup = BeautifulSoup(html, 'html.parser')
 
         name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2')
