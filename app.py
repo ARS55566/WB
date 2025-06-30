@@ -32,7 +32,7 @@ def download_images():
         html = requests.get(url, headers=headers, timeout=10).text
         soup = BeautifulSoup(html, 'html.parser')
 
-        name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2') 
+        name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2')
                       for a in div.find_all('a') if a.text.strip()]
         folder_name = " - ".join(name_parts).replace(":", "").replace("/", " ")
         if not folder_name:
@@ -41,7 +41,8 @@ def download_images():
         save_path = os.path.join("downloads", folder_name)
         os.makedirs(save_path, exist_ok=True)
 
-        sample_img = soup.find('a', href=re.compile(r'/images/.+\.webp'))
+        # Match .webp links with numeric filenames (e.g., 457375457.webp)
+        sample_img = soup.find('a', href=re.compile(r'/images/.*\.webp'))
         if not sample_img:
             return jsonify({"success": False, "error": "Could not find sample image URL."}), 400
 
@@ -54,13 +55,19 @@ def download_images():
             return jsonify({"success": False, "error": "Could not extract base URL."}), 400
 
         base_url = base_match.group(1)
+        match = re.search(r"/(\d+)\.webp$", sample_url)
+        if match:
+            number = match.group(1)
+        else:
+            print("No match found")
 
         downloaded = 0
         failed = 0
         image_urls = []
 
-        for img_id in range(start, end + 1):
+        for img_id in range(start+int(number)-1, end + int(number)):
             img_url = f"{base_url}{img_id}.webp"
+            print(img_url)
             try:
                 img_data = requests.get(img_url, headers=headers, timeout=5)
                 if img_data.status_code == 200:
