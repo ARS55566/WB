@@ -80,31 +80,31 @@ def download_images():
                 except Exception as e:
                     print(f"Error fetching {img_url}: {e}")
                     failed += 1
+            # Zip the folder
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for root, _, files in os.walk(save_path):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        arcname = os.path.relpath(file_path, save_path)
+                        zipf.write(file_path, arcname)
+    
+            zip_buffer.seek(0)
+            zip_filename = f"{folder_name}.zip"
+            zip_path = os.path.join("downloads", zip_filename)
+            with open(zip_path, "wb") as f:
+                f.write(zip_buffer.read())
+    
+            return jsonify({
+                "success": True,
+                "downloaded": downloaded,
+                "failed": failed,
+                "folder": folder_name,
+                "zip_url": f"/download_zip/{zip_filename}",
+                "thumbnails": image_urls
+            })
+
             current += batch_size
-
-        # Zip the folder
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-            for root, _, files in os.walk(save_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-                    arcname = os.path.relpath(file_path, save_path)
-                    zipf.write(file_path, arcname)
-
-        zip_buffer.seek(0)
-        zip_filename = f"{folder_name}.zip"
-        zip_path = os.path.join("downloads", zip_filename)
-        with open(zip_path, "wb") as f:
-            f.write(zip_buffer.read())
-
-        return jsonify({
-            "success": True,
-            "downloaded": downloaded,
-            "failed": failed,
-            "folder": folder_name,
-            "zip_url": f"/download_zip/{zip_filename}",
-            "thumbnails": image_urls
-        })
 
     except Exception as e:
         print(f"Download error: {e}")
