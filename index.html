@@ -1,88 +1,131 @@
-<!DOCTYPE html>  <html>  
-<head>  
-  <meta charset="UTF-8">  
-  <title>Image Grid Downloader</title>  
-  <style>  
-    body {  
-      font-family: Arial, sans-serif;  
-      text-align: center;  
-      margin: 20px;  
-    }  
-    input {  
-      margin: 8px;  
-      padding: 8px;  
-      width: 300px;  
-    }  
-    button {  
-      padding: 10px 20px;  
-      margin: 8px;  
-    }  
-    #response {  
-      margin-top: 20px;  
-      white-space: pre-wrap;  
-      color: red;  
-    }  
-    #grid {  
-      margin-top: 20px;  
-      display: grid;  
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));  
-      gap: 10px;  
-      padding: 0 20px;  
-    }  
-    #grid img {  
-      width: 100%;  
-      height: auto;  
-      border-radius: 8px;  
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);  
-    }  
-  </style>  
-</head>  
-<body>  
-  <h1>Image Grid Downloader</h1>  <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
-<input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-20)"><br>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Image Grid Downloader</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+    }
+    input {
+      margin: 8px;
+      padding: 8px;
+      width: 300px;
+    }
+    button {
+      padding: 10px 20px;
+      margin: 8px;
+    }
+    #response {
+      margin-top: 20px;
+      white-space: pre-wrap;
+      color: red;
+    }
+    #grid {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 10px;
+      padding: 0 20px;
+    }
+    #grid img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+  </style>
+</head>
+<body>
+  <h1>Image Grid Downloader</h1>
 
-<button onclick="startDownload()">⬇ Download and Show Grid</button>
+  <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
+  <input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-25)"><br>
+  <input id="repeatInput" type="number" placeholder="Repeat count (e.g. 4)" min="1"><br>
 
-  <div id="response"></div>  
-  <div id="grid"></div>    <script>  
-    function startDownload() {  
-      const url = document.getElementById('urlInput').value.trim();  
-      const range = document.getElementById('rangeInput').value.trim();  
-      const responseDiv = document.getElementById('response');  
-      const grid = document.getElementById('grid');  
-      responseDiv.innerText = "Processing...";  
-      grid.innerHTML = "";  
-  
-      fetch('/download', {  
-        method: 'POST',  
-        headers: { 'Content-Type': 'application/json' },  
-        body: JSON.stringify({ url, range })  
-      })  
-      .then(async res => {  
-        const text = await res.text();  
-        try {  
-          const json = JSON.parse(text);  
-          if (json.success) {  
-            responseDiv.innerHTML = `  
-              ✅ Download complete!<br>  
-              Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>  
-              <a href="${json.zip_url}" download>Download ZIP</a>  
-            `;  
-            for (let src of json.thumbnails) {  
-              const img = document.createElement('img');  
-              img.src = src;  
-              grid.appendChild(img);  
-            }  
-          } else {  
-            responseDiv.innerText = ❌ Error: ${json.error};  
-          }  
-        } catch (e) {  
-          responseDiv.innerText = ❌ Invalid JSON:\n${text};  
-        }  
-      })  
-      .catch(err => {  
-        responseDiv.innerText = ❌ Request failed: ${err.message};  
-      });  
-    }  
-  </script>  </body>  
+  <button onclick="startDownload()">⬇ Download and Show Grid</button>
+
+  <div id="response"></div>
+  <div id="grid"></div>
+
+  <script>
+    let repeatCounter = 0;
+    let originalStart = 0;
+    let originalEnd = 0;
+    let rangeSize = 0;
+
+    async function startDownload() {
+      const url = document.getElementById('urlInput').value.trim();
+      const rangeInput = document.getElementById('rangeInput');
+      const repeat = parseInt(document.getElementById('repeatInput').value.trim()) || 1;
+      const responseDiv = document.getElementById('response');
+      const grid = document.getElementById('grid');
+
+      const rangeStr = rangeInput.value.trim();
+      const rangeMatch = rangeStr.match(/^(\d+)\s*-\s*(\d+)$/);
+      if (!rangeMatch) {
+        responseDiv.innerText = "❌ Invalid range format. Use format 1-25";
+        return;
+      }
+
+      let start = parseInt(rangeMatch[1]);
+      let end = parseInt(rangeMatch[2]);
+
+      if (repeatCounter === 0) {
+        originalStart = start;
+        originalEnd = end;
+        rangeSize = originalEnd - originalStart + 1;
+      }
+
+      responseDiv.innerText = `Processing batch ${repeatCounter + 1} of ${repeat}...`;
+      grid.innerHTML = "";
+
+      try {
+        const res = await fetch('/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, range: `${start}-${end}` })
+        });
+
+        const text = await res.text();
+        try {
+          const json = JSON.parse(text);
+          if (json.success) {
+            responseDiv.innerHTML = `
+              ✅ Batch ${repeatCounter + 1} complete!<br>
+              Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>
+              <a href="${json.zip_url}" download>Download ZIP</a>
+            `;
+            for (let src of json.thumbnails) {
+              const img = document.createElement('img');
+              img.src = src;
+              grid.appendChild(img);
+            }
+
+            repeatCounter++;
+            if (repeatCounter < repeat) {
+              const newStart = originalStart + repeatCounter * rangeSize;
+              const newEnd = originalEnd + repeatCounter * rangeSize;
+              rangeInput.value = `${newStart}-${newEnd}`;
+              setTimeout(startDownload, 500); // delay between batches
+            } else {
+              repeatCounter = 0;
+            }
+          } else {
+            responseDiv.innerText = `❌ Error: ${json.error}`;
+            repeatCounter = 0;
+          }
+        } catch (e) {
+          responseDiv.innerText = `❌ Invalid JSON:\n${text}`;
+          repeatCounter = 0;
+        }
+      } catch (err) {
+        responseDiv.innerText = `❌ Request failed: ${err.message}`;
+        repeatCounter = 0;
+      }
+    }
+  </script>
+</body>
 </html>
