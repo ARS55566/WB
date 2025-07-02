@@ -56,6 +56,10 @@
       color: white;
       border-radius: 5px;
     }
+    .zip-link {
+      display: block;
+      margin: 5px 0;
+    }
   </style>
 </head>
 <body>
@@ -63,7 +67,7 @@
 
   <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
   <input id="totalInput" type="number" placeholder="Total images to download"><br>
-  <input id="batchInput" type="number" placeholder="Batch size (e.g. 15)"><br>
+  <input id="batchInput" type="number" placeholder="Batch size (max 25)"><br>
 
   <button onclick="startDownload()">⬇️ Download and Show Grid</button>
 
@@ -74,6 +78,7 @@
   </div>
 
   <div id="response"></div>
+  <div id="zipLinks"></div>
   <div id="grid"></div>
 
   <script>
@@ -84,6 +89,7 @@
       const responseDiv = document.getElementById('response');
       const grid = document.getElementById('grid');
       const progressFill = document.getElementById('progressBarFill');
+      const zipLinksDiv = document.getElementById('zipLinks');
 
       if (!url || !total || !batchSize) {
         responseDiv.innerText = "❌ Please provide URL, total images, and batch size.";
@@ -92,6 +98,7 @@
 
       responseDiv.innerText = "Processing...";
       grid.innerHTML = "";
+      zipLinksDiv.innerHTML = "";
       progressFill.style.width = '0%';
       progressFill.innerText = '0%';
 
@@ -108,27 +115,4 @@
         if (json.success) {
           responseDiv.innerHTML = `
             ✅ Download complete!<br>
-            Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>
-            <a href="${json.zip_url}" download>Download ZIP</a>
-          `;
-
-          let count = 0;
-          for (let src of json.thumbnails) {
-            const img = document.createElement('img');
-            img.src = src;
-            grid.appendChild(img);
-            count++;
-            const progress = Math.floor((count / json.thumbnails.length) * 100);
-            progressFill.style.width = progress + '%';
-            progressFill.innerText = progress + '%';
-          }
-        } else {
-          responseDiv.innerText = `❌ Error: ${json.error}`;
-        }
-      } catch (e) {
-        responseDiv.innerText = `❌ Request failed: ${e.message}`;
-      }
-    }
-  </script>
-</body>
-</html>
+            Downloaded: ${json.downlo
