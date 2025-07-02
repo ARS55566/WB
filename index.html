@@ -36,58 +36,98 @@
       border-radius: 8px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     }
+    #progressContainer {
+      margin-top: 20px;
+      width: 80%;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    #progressBar {
+      width: 100%;
+      background-color: #ddd;
+      border-radius: 5px;
+    }
+    #progressBarFill {
+      height: 20px;
+      width: 0%;
+      background-color: #4caf50;
+      text-align: center;
+      line-height: 20px;
+      color: white;
+      border-radius: 5px;
+    }
   </style>
 </head>
 <body>
   <h1>Image Grid Downloader</h1>
 
   <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
-  <input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-20)"><br>
+  <input id="totalInput" type="number" placeholder="Total images to download"><br>
+  <input id="batchInput" type="number" placeholder="Batch size (e.g. 15)"><br>
 
   <button onclick="startDownload()">⬇️ Download and Show Grid</button>
+
+  <div id="progressContainer">
+    <div id="progressBar">
+      <div id="progressBarFill">0%</div>
+    </div>
+  </div>
 
   <div id="response"></div>
   <div id="grid"></div>
 
   <script>
-    function startDownload() {
+    async function startDownload() {
       const url = document.getElementById('urlInput').value.trim();
-      const range = document.getElementById('rangeInput').value.trim();
+      const total = parseInt(document.getElementById('totalInput').value.trim());
+      const batchSize = parseInt(document.getElementById('batchInput').value.trim());
       const responseDiv = document.getElementById('response');
       const grid = document.getElementById('grid');
+      const progressFill = document.getElementById('progressBarFill');
+
+      if (!url || !total || !batchSize) {
+        responseDiv.innerText = "❌ Please provide URL, total images, and batch size.";
+        return;
+      }
+
       responseDiv.innerText = "Processing...";
       grid.innerHTML = "";
+      progressFill.style.width = '0%';
+      progressFill.innerText = '0%';
 
-      fetch('/download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, range })
-      })
-      .then(async res => {
+      try {
+        const res = await fetch('/download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, total, batch_size: batchSize })
+        });
+
         const text = await res.text();
-        try {
-          const json = JSON.parse(text);
-          if (json.success) {
-            responseDiv.innerHTML = `
-              ✅ Download complete!<br>
-              Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>
-              <a href="${json.zip_url}" download>Download ZIP</a>
-            `;
-            for (let src of json.thumbnails) {
-              const img = document.createElement('img');
-              img.src = src;
-              grid.appendChild(img);
-            }
-          } else {
-            responseDiv.innerText = `❌ Error: ${json.error}`;
+        const json = JSON.parse(text);
+
+        if (json.success) {
+          responseDiv.innerHTML = `
+            ✅ Download complete!<br>
+            Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>
+            <a href="${json.zip_url}" download>Download ZIP</a>
+          `;
+
+          let count = 0;
+          for (let src of json.thumbnails) {
+            const img = document.createElement('img');
+            img.src = src;
+            grid.appendChild(img);
+            count++;
+            const progress = Math.floor((count / json.thumbnails.length) * 100);
+            progressFill.style.width = progress + '%';
+            progressFill.innerText = progress + '%';
           }
-        } catch (e) {
-          responseDiv.innerText = `❌ Invalid JSON:\n${text}`;
+        } else {
+          responseDiv.innerText = `❌ Error: ${json.error}`;
         }
-      })
-      .catch(err => {
-        responseDiv.innerText = `❌ Request failed: ${err.message}`;
-      });
+      } catch (e) {
+        responseDiv.innerText = `❌ Request failed: ${e.message}`;
+      }
     }
   </script>
 </body>
