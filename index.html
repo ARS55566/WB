@@ -1,118 +1,88 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Image Grid Downloader</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      margin: 20px;
-    }
-    input {
-      margin: 8px;
-      padding: 8px;
-      width: 300px;
-    }
-    button {
-      padding: 10px 20px;
-      margin: 8px;
-    }
-    #response {
-      margin-top: 20px;
-      white-space: pre-wrap;
-      color: red;
-    }
-    #grid {
-      margin-top: 20px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 10px;
-      padding: 0 20px;
-    }
-    #grid img {
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-    #progressContainer {
-      margin-top: 20px;
-      width: 80%;
-      margin-left: auto;
-      margin-right: auto;
-    }
-    #progressBar {
-      width: 100%;
-      background-color: #ddd;
-      border-radius: 5px;
-    }
-    #progressBarFill {
-      height: 20px;
-      width: 0%;
-      background-color: #4caf50;
-      text-align: center;
-      line-height: 20px;
-      color: white;
-      border-radius: 5px;
-    }
-    .zip-link {
-      display: block;
-      margin: 5px 0;
-    }
-  </style>
-</head>
-<body>
-  <h1>Image Grid Downloader</h1>
+<!DOCTYPE html>  <html>  
+<head>  
+  <meta charset="UTF-8">  
+  <title>Image Grid Downloader</title>  
+  <style>  
+    body {  
+      font-family: Arial, sans-serif;  
+      text-align: center;  
+      margin: 20px;  
+    }  
+    input {  
+      margin: 8px;  
+      padding: 8px;  
+      width: 300px;  
+    }  
+    button {  
+      padding: 10px 20px;  
+      margin: 8px;  
+    }  
+    #response {  
+      margin-top: 20px;  
+      white-space: pre-wrap;  
+      color: red;  
+    }  
+    #grid {  
+      margin-top: 20px;  
+      display: grid;  
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));  
+      gap: 10px;  
+      padding: 0 20px;  
+    }  
+    #grid img {  
+      width: 100%;  
+      height: auto;  
+      border-radius: 8px;  
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);  
+    }  
+  </style>  
+</head>  
+<body>  
+  <h1>Image Grid Downloader</h1>  <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
+<input id="rangeInput" type="text" placeholder="Enter range (e.g. 1-20)"><br>
 
-  <input id="urlInput" type="text" placeholder="Enter gallery URL"><br>
-  <input id="totalInput" type="number" placeholder="Total images to download"><br>
-  <input id="batchInput" type="number" placeholder="Batch size (max 25)"><br>
+<button onclick="startDownload()">⬇ Download and Show Grid</button>
 
-  <button onclick="startDownload()">⬇️ Download and Show Grid</button>
-
-  <div id="progressContainer">
-    <div id="progressBar">
-      <div id="progressBarFill">0%</div>
-    </div>
-  </div>
-
-  <div id="response"></div>
-  <div id="zipLinks"></div>
-  <div id="grid"></div>
-
-  <script>
-    async function startDownload() {
-      const url = document.getElementById('urlInput').value.trim();
-      const total = parseInt(document.getElementById('totalInput').value.trim());
-      const batchSize = parseInt(document.getElementById('batchInput').value.trim());
-      const responseDiv = document.getElementById('response');
-      const grid = document.getElementById('grid');
-      const progressFill = document.getElementById('progressBarFill');
-      const zipLinksDiv = document.getElementById('zipLinks');
-
-      if (!url || !total || !batchSize) {
-        responseDiv.innerText = "❌ Please provide URL, total images, and batch size.";
-        return;
-      }
-
-      responseDiv.innerText = "Processing...";
-      grid.innerHTML = "";
-      zipLinksDiv.innerHTML = "";
-      progressFill.style.width = '0%';
-      progressFill.innerText = '0%';
-
-      try {
-        const res = await fetch('/download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, total, batch_size: batchSize })
-        });
-
-        const text = await res.text();
-        const json = JSON.parse(text);
-
-        if (json.success) {
-          responseDiv.innerHTML = `
-            ✅ Download complete!<br>
-            Downloaded: ${json.downlo
+  <div id="response"></div>  
+  <div id="grid"></div>    <script>  
+    function startDownload() {  
+      const url = document.getElementById('urlInput').value.trim();  
+      const range = document.getElementById('rangeInput').value.trim();  
+      const responseDiv = document.getElementById('response');  
+      const grid = document.getElementById('grid');  
+      responseDiv.innerText = "Processing...";  
+      grid.innerHTML = "";  
+  
+      fetch('/download', {  
+        method: 'POST',  
+        headers: { 'Content-Type': 'application/json' },  
+        body: JSON.stringify({ url, range })  
+      })  
+      .then(async res => {  
+        const text = await res.text();  
+        try {  
+          const json = JSON.parse(text);  
+          if (json.success) {  
+            responseDiv.innerHTML = `  
+              ✅ Download complete!<br>  
+              Downloaded: ${json.downloaded}, Failed: ${json.failed}<br>  
+              <a href="${json.zip_url}" download>Download ZIP</a>  
+            `;  
+            for (let src of json.thumbnails) {  
+              const img = document.createElement('img');  
+              img.src = src;  
+              grid.appendChild(img);  
+            }  
+          } else {  
+            responseDiv.innerText = ❌ Error: ${json.error};  
+          }  
+        } catch (e) {  
+          responseDiv.innerText = ❌ Invalid JSON:\n${text};  
+        }  
+      })  
+      .catch(err => {  
+        responseDiv.innerText = ❌ Request failed: ${err.message};  
+      });  
+    }  
+  </script>  </body>  
+</html>
