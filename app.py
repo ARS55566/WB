@@ -1,3 +1,21 @@
+import os
+import re
+import requests
+import time
+from bs4 import BeautifulSoup
+from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask_cors import CORS
+import zipfile
+import io
+
+app = Flask(__name__)
+CORS(app)
+
+@app.route('/')
+def serve_index():
+    return send_file('index.html')
+
+
 @app.route('/download', methods=['POST'])
 def download_images():
     try:
@@ -13,6 +31,7 @@ def download_images():
         html = requests.get(url, headers=headers, timeout=20).text
         soup = BeautifulSoup(html, 'html.parser')
 
+        # Generate folder name from div links
         name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2')
                       for a in div.find_all('a') if a.text.strip()]
         folder_name = " - ".join(name_parts).replace(":", "").replace("/", " ")
@@ -22,6 +41,7 @@ def download_images():
         root_path = os.path.join("downloads", folder_name)
         os.makedirs(root_path, exist_ok=True)
 
+        # Extract sample image
         sample_img = soup.find('a', href=re.compile(r'/images/.*\.(webp|jpg|jpeg|png)'))
         if not sample_img:
             return jsonify({"success": False, "error": "Could not find sample image URL."}), 400
@@ -73,9 +93,9 @@ def download_images():
             # Create ZIP for this batch
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, _, files in os.walk(batch_folder):
+                for root_dir, _, files in os.walk(batch_folder):
                     for file in files:
-                        file_path = os.path.join(root, file)
+                        file_path = os.path.join(root_dir, file)
                         arcname = os.path.relpath(file_path, batch_folder)
                         zipf.write(file_path, arcname)
 
@@ -84,8 +104,8 @@ def download_images():
             zip_path = os.path.join("downloads", zip_filename)
             with open(zip_path, "wb") as f:
                 f.write(zip_buffer.read())
-            zip_urls.append(f"/download_zip/{zip_filename}")
 
+            zip_urls.append(f"/download_zip/{zip_filename}")
             current += batch_size
             batch_num += 1
 
@@ -101,3 +121,18 @@ def download_images():
     except Exception as e:
         print(f"Download error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/downloads/<folder>/<batch>/<filename>')
+def serve_image(folder, batch, filename):
+    return send_from_directory(os.path.join("downloads", folder, batch), filename)
+
+
+@app.route('/download_zip/<filename>')
+def serve_zip(filename):
+    return send_from_directory('downloads', filename, as_attachment=True)
+
+
+if __name__ == '__main__':
+    os.makedirs("downloads", exist_ok=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
