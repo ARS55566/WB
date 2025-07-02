@@ -1,20 +1,3 @@
-import os
-import re
-import requests
-import time
-from bs4 import BeautifulSoup
-from flask import Flask, request, jsonify, send_file, send_from_directory
-from flask_cors import CORS
-import zipfile
-import io
-
-app = Flask(__name__)
-CORS(app)
-
-@app.route('/')
-def serve_index():
-    return send_file('index.html')
-
 @app.route('/download', methods=['POST'])
 def download_images():
     try:
@@ -36,8 +19,8 @@ def download_images():
         if not folder_name:
             folder_name = "ImageGallery_" + str(int(time.time()))
 
-        save_path = os.path.join("downloads", folder_name)
-        os.makedirs(save_path, exist_ok=True)
+        root_path = os.path.join("downloads", folder_name)
+        os.makedirs(root_path, exist_ok=True)
 
         sample_img = soup.find('a', href=re.compile(r'/images/.*\.(webp|jpg|jpeg|png)'))
         if not sample_img:
@@ -58,10 +41,16 @@ def download_images():
         downloaded = 0
         failed = 0
         image_urls = []
+        zip_urls = []
 
         current = 0
+        batch_num = 1
+
         while current < total:
             end = min(current + batch_size, total)
+            batch_folder = os.path.join(root_path, f"Batch_{batch_num}")
+            os.makedirs(batch_folder, exist_ok=True)
+
             for i in range(current, end):
                 img_id = start_number + i
                 img_url = f"{base_url}{img_id}.{extension}"
@@ -69,55 +58,46 @@ def download_images():
                     img_data = requests.get(img_url, headers=headers, timeout=5)
                     if img_data.status_code == 200:
                         filename = f"{folder_name} {img_id:03d}.{extension}"
-                        file_path = os.path.join(save_path, filename)
+                        file_path = os.path.join(batch_folder, filename)
                         if not os.path.exists(file_path):
                             with open(file_path, 'wb') as f:
                                 f.write(img_data.content)
-                        image_urls.append(f"/downloads/{folder_name}/{filename}")
+                        image_urls.append(f"/downloads/{folder_name}/Batch_{batch_num}/{filename}")
                         downloaded += 1
                     else:
                         failed += 1
                 except Exception as e:
                     print(f"Error fetching {img_url}: {e}")
                     failed += 1
-            # Zip the folder
+
+            # Create ZIP for this batch
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for root, _, files in os.walk(save_path):
+                for root, _, files in os.walk(batch_folder):
                     for file in files:
                         file_path = os.path.join(root, file)
-                        arcname = os.path.relpath(file_path, save_path)
+                        arcname = os.path.relpath(file_path, batch_folder)
                         zipf.write(file_path, arcname)
-    
+
             zip_buffer.seek(0)
-            zip_filename = f"{folder_name}.zip"
+            zip_filename = f"{folder_name}_Batch_{batch_num}.zip"
             zip_path = os.path.join("downloads", zip_filename)
             with open(zip_path, "wb") as f:
                 f.write(zip_buffer.read())
-    
-            return jsonify({
-                "success": True,
-                "downloaded": downloaded,
-                "failed": failed,
-                "folder": folder_name,
-                "zip_url": f"/download_zip/{zip_filename}",
-                "thumbnails": image_urls
-            })
+            zip_urls.append(f"/download_zip/{zip_filename}")
 
             current += batch_size
+            batch_num += 1
+
+        return jsonify({
+            "success": True,
+            "downloaded": downloaded,
+            "failed": failed,
+            "folder": folder_name,
+            "zip_urls": zip_urls,
+            "thumbnails": image_urls
+        })
 
     except Exception as e:
         print(f"Download error: {e}")
         return jsonify({"success": False, "error": str(e)}), 500
-
-@app.route('/downloads/<folder>/<filename>')
-def serve_image(folder, filename):
-    return send_from_directory(os.path.join("downloads", folder), filename)
-
-@app.route('/download_zip/<filename>')
-def serve_zip(filename):
-    return send_from_directory('downloads', filename, as_attachment=True)
-
-if __name__ == '__main__':
-    os.makedirs("downloads", exist_ok=True)
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
