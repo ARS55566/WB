@@ -42,6 +42,7 @@ def download_images():
         }
 
         html = requests.get(url, headers=headers, timeout=20).text
+        print(html[:500])
         soup = BeautifulSoup(html, 'html.parser')
 
         name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2')
