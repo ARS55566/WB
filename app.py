@@ -28,22 +28,8 @@ def download_images():
         if start > end:
             return jsonify({"success": False, "error": "Start must be <= end."}), 400
 
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'none',
-            'Sec-Fetch-User': '?1'
-        }
-
-        html = requests.get(url, headers=headers, timeout=20).text
-        print(html[:500])
-        soup = BeautifulSoup(html, 'html.parser')
+        html_text = requests.get(url).text
+        soup = BeautifulSoup(html_text, 'html.parser')
 
         name_parts = [a.text.strip() for div in soup.find_all('div', class_='pb-2')
                       for a in div.find_all('a') if a.text.strip()]
